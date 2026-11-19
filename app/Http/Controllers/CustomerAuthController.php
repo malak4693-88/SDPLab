@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Customer;
+use App\Http\Requests\CustomerStoreRequest;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+
+
+
+class CustomerAuthController extends Controller
+{
+    public function login(Request $request)
+    {
+        $request->validate([
+            'phone_number' => 'required',
+            'password' => 'required',
+        ]);
+
+        $customer = Customer::where(
+            'phone_number',
+            $request->phone_number
+        )->first();
+
+        if (!$customer || !Hash::check($request->password, $customer->password)) {
+            return response()->json([
+                'message' => 'Invalid phone number or password'
+            ], 401);
+        }
+
+        $token = $customer->createToken('customer-token')->plainTextToken;
+
+        return response()->json([
+            'customer' => $customer,
+            'token' => $token
+        ]);
+    }
+
+    public function me(Request $request)
+    {
+        return response()->json([
+            'customer' => $request->user()
+        ]);
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully'
+        ]);
+    }
+
+    public function register(CustomerStoreRequest $request)
+    {
+        $customer = Customer::create($request->validated());
+
+        $token = $customer->createToken('login-token')->plainTextToken;
+
+        return response()->json([
+            'customer' => $customer,
+            'token' => $token,
+        ], 201);
+    }
+
+}

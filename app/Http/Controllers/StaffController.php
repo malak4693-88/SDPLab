@@ -3,74 +3,57 @@
 namespace App\Http\Controllers;
 
 use App\Models\Staff;
-use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use App\Http\Requests\StaffStoreRequest;
+use App\Http\Requests\StaffUpdateRequest;
+use App\Http\Resources\StaffResource;
 
 class StaffController extends Controller
 {
-    // 1. Display all staff members
     public function index()
     {
-        return response()->json(Staff::all());
+        return StaffResource::collection(Staff::all());
     }
 
-    // 2. Create a new staff member
-    public function store(Request $request)
+    public function store(StaffStoreRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|email|unique:staff,email',
-            'password' => 'required|string|min:8',
-            'role' => 'required|string',
-            'phone_number' => 'required|string|unique:staff,phone_number',
-        ]);
 
-        $staff = Staff::create($validated);
+        if (auth()->user()->role != 'admin') {
+            return response()->json([
+                'message' => 'Only admins can do this'
+            ], 403);
+        }
 
-        return response()->json($staff, 201);
+        $staff = Staff::create($request->validated());
+        return StaffResource::make($staff);
     }
 
-    // 3. Display one staff member
-    public function show(string $id)
+    public function show($id)
     {
-        return response()->json(Staff::findOrFail($id));
+        return StaffResource::make(Staff::findOrFail($id));
     }
 
-    // 4. Update a staff member
-    public function update(Request $request, string $id)
+    public function update(StaffUpdateRequest $request, $id)
     {
+        if (auth()->user()->role != 'admin') {
+            return response()->json([
+                'message' => 'Only admins can do this'
+            ], 403);
+        }
         $staff = Staff::findOrFail($id);
-
-        $validated = $request->validate([
-            'name' => 'sometimes|required|string',
-            'email' => [
-                'sometimes',
-                'required',
-                'email',
-                Rule::unique('staff', 'email')->ignore($staff->id),
-            ],
-            'password' => 'sometimes|required|string|min:8',
-            'role' => 'sometimes|required|string',
-            'phone_number' => [
-                'sometimes',
-                'required',
-                'string',
-                Rule::unique('staff', 'phone_number')->ignore($staff->id),
-            ],
-        ]);
-
-        $staff->update($validated);
-
-        return response()->json($staff);
+        $staff->update($request->validated());
+        return StaffResource::make($staff);
     }
 
-    // 5. Delete a staff member
-    public function destroy(string $id)
+    public function destroy($id)
     {
-        Staff::findOrFail($id)->delete();
 
-        return response()->json(
-            "Staff member deleted successfully."
-        );
+        if (auth()->user()->role != 'admin') {
+            return response()->json([
+                'message' => 'Only admins can do this'
+            ], 403);
+        }
+
+        Staff::findOrFail($id)->delete();
+        return response()->json("Staff member deleted successfully.");
     }
 }
